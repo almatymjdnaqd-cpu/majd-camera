@@ -35,11 +35,13 @@ jobs:
 
       - name: Add Camera and AR Dependencies
         run: |
-          flutter pub add camera gal google_mlkit_face_mesh_detection
+          flutter pub add camera
+          flutter pub add gal
+          flutter pub add google_mlkit_face_mesh_detection
 
       - name: Configure Android Permissions
         run: |
-          sed -i '/<application/i\    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/WRITE_EXTERNAL_STORAGE/d' android/app/src/main/AndroidManifest.xml
 
       - name: Get Dependencies
         run: flutter pub get
