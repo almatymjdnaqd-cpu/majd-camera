@@ -1,3 +1,4 @@
+
 name: Majd Camera APK Build
 
 on:
@@ -11,13 +12,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Project
         uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
       - name: Create Flutter Project
         run: |
@@ -25,10 +33,15 @@ jobs:
             flutter create --org com.majd.camera --project-name majd_camera .
           fi
 
+      - name: Add Camera Dependencies
+        run: |
+          flutter pub add camera
+          flutter pub add permission_handler
+
       - name: Get Dependencies
         run: flutter pub get
 
-      - name: Build APK
+      - name: Build Android APK
         run: flutter build apk --release
 
       - name: Upload APK
@@ -36,3 +49,4 @@ jobs:
         with:
           name: majd-camera-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
