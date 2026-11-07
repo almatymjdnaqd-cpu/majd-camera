@@ -1,7 +1,10 @@
 
 import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(const MajdCameraApp());
 }
 
@@ -27,16 +30,13 @@ class CameraHome extends StatefulWidget {
 }
 
 class _CameraHomeState extends State<CameraHome> {
-  int selectedFilter = 0;
+  CameraController? controller;
+  List<CameraDescription> cameras = [];
 
-  final List<Color> filters = [
-    Colors.transparent,
-    Colors.orange.withOpacity(0.25),
-    Colors.blue.withOpacity(0.25),
-    Colors.pink.withOpacity(0.25),
-    Colors.purple.withOpacity(0.25),
-    Colors.green.withOpacity(0.20),
-  ];
+  bool loading = true;
+  String? errorMessage;
+  int cameraIndex = 0;
+  int selectedFilter = 0;
 
   final List<String> filterNames = [
     'Original',
@@ -47,6 +47,159 @@ class _CameraHomeState extends State<CameraHome> {
     'Nature',
   ];
 
+  final List<Color> filterColors = [
+    Colors.transparent,
+    Colors.orange,
+    Colors.blue,
+    Colors.pink,
+    Colors.purple,
+    Colors.green,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    initializeCamera();
+  }
+
+  Future<void> initializeCamera() async {
+    try {
+      cameras = await availableCameras();
+
+      if (cameras.isEmpty) {
+        throw Exception('لم يتم العثور على كاميرا');
+      }
+
+      await startCamera(cameras[cameraIndex]);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        errorMessage = 'تعذر تشغيل الكاميرا: $e';
+        loading = false;
+      });
+    }
+  }
+
+  Future<void> startCamera(CameraDescription camera) async {
+    final oldController = controller;
+    controller = null;
+
+    if (oldController != null) {
+      await oldController.dispose();
+    }
+
+    final newController = CameraController(
+      camera,
+      ResolutionPreset.high,
+      enableAudio: false,
+    );
+
+    controller = newController;
+
+    await newController.initialize();
+
+    if (!mounted) return;
+
+    setState(() {
+      loading = false;
+      errorMessage = null;
+    });
+  }
+
+  Future<void> switchCamera() async {
+    if (cameras.length < 2) return;
+
+    setState(() {
+      loading = true;
+    });
+
+    cameraIndex = (cameraIndex + 1) % cameras.length;
+
+    try {
+      await startCamera(cameras[cameraIndex]);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        loading = false;
+        errorMessage = 'تعذر تبديل الكاميرا';
+      });
+    }
+  }
+
+  Future<void> takePicture() async {
+    final current = controller;
+
+    if (current == null || !current.value.isInitialized) return;
+    if (current.value.isTakingPicture) return;
+
+    try {
+      final XFile picture = await current.takePicture();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تم التقاط الصورة: ${picture.name}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر التقاط الصورة')),
+      );
+    }
+  }
+
+  Widget buildPreview() {
+    final current = controller;
+
+    if (loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.amber),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            errorMessage!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
+
+    if (current == null || !current.value.isInitialized) {
+      return const Center(child: Text('الكاميرا غير جاهزة'));
+    }
+
+    return ClipRect(
+      child: ColorFiltered(
+        colorFilter: selectedFilter == 0
+            ? const ColorFilter.mode(
+                Colors.transparent,
+                BlendMode.dst,
+              )
+            : ColorFilter.mode(
+                filterColors[selectedFilter].withOpacity(0.25),
+                BlendMode.softLight,
+              ),
+        child: CameraPreview(current),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    controller?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,66 +207,46 @@ class _CameraHomeState extends State<CameraHome> {
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(18),
+            const Padding(
+              padding: EdgeInsets.all(18),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Icon(Icons.flash_off, color: Colors.white, size: 28),
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.camera_alt, color: Colors.amber),
+                  SizedBox(width: 10),
                   Text(
                     'MAJD CAMERA',
                     style: TextStyle(
-                      color: Colors.white,
                       fontSize: 21,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 2,
                     ),
                   ),
-                  Icon(Icons.settings, color: Colors.white, size: 28),
                 ],
               ),
             ),
+
             Expanded(
               child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 10),
                 width: double.infinity,
-                margin: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFF191919),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: Colors.white12),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: Colors.white24),
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(
-                      Icons.camera_alt_outlined,
-                      size: 90,
-                      color: Colors.white24,
-                    ),
-                    if (selectedFilter != 0)
-                      Container(
-                        decoration: BoxDecoration(
-                          color: filters[selectedFilter],
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                      ),
-                    const Positioned(
-                      bottom: 22,
-                      child: Text(
-                        'Your camera experience starts here',
-                        style: TextStyle(color: Colors.white54),
-                      ),
-                    ),
-                  ],
-                ),
+                clipBehavior: Clip.antiAlias,
+                child: buildPreview(),
               ),
             ),
-            const SizedBox(height: 18),
+
+            const SizedBox(height: 15),
+
             SizedBox(
-              height: 90,
+              height: 85,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: filters.length,
+                itemCount: filterNames.length,
                 itemBuilder: (context, index) {
                   return GestureDetector(
                     onTap: () {
@@ -121,23 +254,21 @@ class _CameraHomeState extends State<CameraHome> {
                         selectedFilter = index;
                       });
                     },
-                    child: Container(
-                      width: 76,
-                      margin: const EdgeInsets.symmetric(horizontal: 7),
+                    child: SizedBox(
+                      width: 75,
                       child: Column(
                         children: [
                           Container(
-                            width: 55,
-                            height: 55,
+                            width: 48,
+                            height: 48,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: filters[index] == Colors.transparent
-                                  ? Colors.white12
-                                  : filters[index],
+                              color: filterColors[index]
+                                  .withOpacity(0.35),
                               border: Border.all(
                                 color: selectedFilter == index
                                     ? Colors.amber
-                                    : Colors.white24,
+                                    : Colors.white38,
                                 width: 2,
                               ),
                             ),
@@ -146,13 +277,10 @@ class _CameraHomeState extends State<CameraHome> {
                               color: Colors.white,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 5),
                           Text(
                             filterNames[index],
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 10,
-                            ),
+                            style: const TextStyle(fontSize: 10),
                           ),
                         ],
                       ),
@@ -161,30 +289,48 @@ class _CameraHomeState extends State<CameraHome> {
                 },
               ),
             ),
+
             Padding(
-              padding: const EdgeInsets.fromLTRB(25, 8, 25, 24),
+              padding: const EdgeInsets.fromLTRB(25, 8, 25, 20),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  const Icon(Icons.photo_library,
-                      color: Colors.white, size: 30),
-                  Container(
-                    width: 76,
-                    height: 76,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 5),
-                    ),
+                  const Icon(
+                    Icons.photo_library,
+                    color: Colors.white,
+                    size: 30,
+                  ),
+
+                  GestureDetector(
+                    onTap: takePicture,
                     child: Container(
-                      margin: const EdgeInsets.all(5),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      width: 75,
+                      height: 75,
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 5,
+                        ),
+                      ),
+                      child: Container(
+                        margin: const EdgeInsets.all(5),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
                   ),
-                  const Icon(Icons.flip_camera_android,
-                      color: Colors.white, size: 32),
+
+                  IconButton(
+                    onPressed: switchCamera,
+                    icon: const Icon(
+                      Icons.flip_camera_android,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
                 ],
               ),
             ),
