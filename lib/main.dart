@@ -1,5 +1,4 @@
 
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:gal/gal.dart';
@@ -28,13 +27,11 @@ class MajdCameraApp extends StatelessWidget {
 class CameraFilter {
   final String name;
   final IconData icon;
-  final Color? tint;
   final ColorFilter? colorFilter;
 
   const CameraFilter({
     required this.name,
     required this.icon,
-    this.tint,
     this.colorFilter,
   });
 }
@@ -53,6 +50,7 @@ class _CameraScreenState extends State<CameraScreen> {
   bool loading = true;
   bool takingPicture = false;
   bool flashOn = false;
+
   int cameraIndex = 0;
   int selectedFilter = 0;
 
@@ -64,7 +62,7 @@ class _CameraScreenState extends State<CameraScreen> {
     CameraFilter(
       name: 'Warm',
       icon: Icons.wb_sunny,
-      colorFilter: ColorFilter.mode(
+      colorFilter: const ColorFilter.mode(
         Color(0x33FF9D42),
         BlendMode.softLight,
       ),
@@ -72,7 +70,7 @@ class _CameraScreenState extends State<CameraScreen> {
     CameraFilter(
       name: 'Pink',
       icon: Icons.favorite,
-      colorFilter: ColorFilter.mode(
+      colorFilter: const ColorFilter.mode(
         Color(0x44FF4F9A),
         BlendMode.softLight,
       ),
@@ -80,7 +78,7 @@ class _CameraScreenState extends State<CameraScreen> {
     CameraFilter(
       name: 'Dream',
       icon: Icons.auto_awesome,
-      colorFilter: ColorFilter.mode(
+      colorFilter: const ColorFilter.mode(
         Color(0x338C7BFF),
         BlendMode.softLight,
       ),
@@ -88,7 +86,7 @@ class _CameraScreenState extends State<CameraScreen> {
     CameraFilter(
       name: 'Cool',
       icon: Icons.ac_unit,
-      colorFilter: ColorFilter.mode(
+      colorFilter: const ColorFilter.mode(
         Color(0x334CAEFF),
         BlendMode.softLight,
       ),
@@ -96,7 +94,7 @@ class _CameraScreenState extends State<CameraScreen> {
     CameraFilter(
       name: 'Golden',
       icon: Icons.star,
-      colorFilter: ColorFilter.mode(
+      colorFilter: const ColorFilter.mode(
         Color(0x44FFD700),
         BlendMode.softLight,
       ),
@@ -104,7 +102,7 @@ class _CameraScreenState extends State<CameraScreen> {
     CameraFilter(
       name: 'Vintage',
       icon: Icons.photo_filter,
-      colorFilter: ColorFilter.mode(
+      colorFilter: const ColorFilter.mode(
         Color(0x447C5135),
         BlendMode.softLight,
       ),
@@ -112,7 +110,7 @@ class _CameraScreenState extends State<CameraScreen> {
     CameraFilter(
       name: 'Purple',
       icon: Icons.color_lens,
-      colorFilter: ColorFilter.mode(
+      colorFilter: const ColorFilter.mode(
         Color(0x445D35FF),
         BlendMode.softLight,
       ),
@@ -120,7 +118,7 @@ class _CameraScreenState extends State<CameraScreen> {
     CameraFilter(
       name: 'Rose',
       icon: Icons.local_florist,
-      colorFilter: ColorFilter.mode(
+      colorFilter: const ColorFilter.mode(
         Color(0x44FF7890),
         BlendMode.softLight,
       ),
@@ -135,14 +133,8 @@ class _CameraScreenState extends State<CameraScreen> {
         0, 0, 0, 1, 0,
       ]),
     ),
-    const CameraFilter(
-      name: 'Dog',
-      icon: Icons.pets,
-    ),
-    const CameraFilter(
-      name: 'Glasses',
-      icon: Icons.visibility,
-    ),
+    const CameraFilter(name: 'Dog', icon: Icons.pets),
+    const CameraFilter(name: 'Glasses', icon: Icons.visibility),
     const CameraFilter(
       name: 'Crown',
       icon: Icons.workspace_premium,
@@ -168,26 +160,32 @@ class _CameraScreenState extends State<CameraScreen> {
       cameras = await availableCameras();
 
       if (cameras.isEmpty) {
-        showMessage('لم يتم العثور على كاميرا');
-        setState(() => loading = false);
+        if (mounted) {
+          setState(() => loading = false);
+          showMessage('لم يتم العثور على كاميرا');
+        }
         return;
       }
 
-      cameraIndex = cameras.indexWhere(
+      final backIndex = cameras.indexWhere(
         (camera) =>
             camera.lensDirection == CameraLensDirection.back,
       );
 
-      if (cameraIndex < 0) cameraIndex = 0;
+      cameraIndex = backIndex >= 0 ? backIndex : 0;
 
       await startCamera();
     } catch (e) {
-      showMessage('تعذر تشغيل الكاميرا: $e');
-      if (mounted) setState(() => loading = false);
+      if (mounted) {
+        setState(() => loading = false);
+        showMessage('تعذر تشغيل الكاميرا: $e');
+      }
     }
   }
 
   Future<void> startCamera() async {
+    if (cameras.isEmpty || !mounted) return;
+
     final oldController = controller;
     controller = null;
 
@@ -218,8 +216,11 @@ class _CameraScreenState extends State<CameraScreen> {
       });
     } catch (e) {
       await newController.dispose();
-      showMessage('خطأ في تشغيل الكاميرا: $e');
-      if (mounted) setState(() => loading = false);
+
+      if (mounted) {
+        setState(() => loading = false);
+        showMessage('خطأ في تشغيل الكاميرا: $e');
+      }
     }
   }
 
@@ -235,6 +236,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
   Future<void> toggleFlash() async {
     final cam = controller;
+
     if (cam == null || !cam.value.isInitialized) return;
 
     try {
@@ -247,7 +249,7 @@ class _CameraScreenState extends State<CameraScreen> {
       if (mounted) {
         setState(() => flashOn = next);
       }
-    } catch (e) {
+    } catch (_) {
       showMessage('الفلاش غير مدعوم في هذه الكاميرا');
     }
   }
@@ -288,7 +290,7 @@ class _CameraScreenState extends State<CameraScreen> {
   Future<void> openGallery() async {
     try {
       await Gal.open();
-    } catch (e) {
+    } catch (_) {
       showMessage('تعذر فتح المعرض');
     }
   }
@@ -312,10 +314,9 @@ class _CameraScreenState extends State<CameraScreen> {
 
   Widget buildCameraPreview() {
     final cam = controller!;
+    final filter = filters[selectedFilter];
 
     Widget preview = CameraPreview(cam);
-
-    final filter = filters[selectedFilter];
 
     if (filter.colorFilter != null) {
       preview = ColorFiltered(
@@ -328,11 +329,6 @@ class _CameraScreenState extends State<CameraScreen> {
       fit: StackFit.expand,
       children: [
         preview,
-
-        if (filter.tint != null)
-          ColoredBox(
-            color: filter.tint!,
-          ),
 
         if (filter.name == 'Dog')
           const Center(
@@ -464,8 +460,9 @@ class _CameraScreenState extends State<CameraScreen> {
                     ? const Color(0xFFFFD700)
                     : Colors.white,
                 fontSize: 11,
-                fontWeight:
-                    selected ? FontWeight.bold : FontWeight.normal,
+                fontWeight: selected
+                    ? FontWeight.bold
+                    : FontWeight.normal,
               ),
             ),
           ],
@@ -663,7 +660,7 @@ class _CameraScreenState extends State<CameraScreen> {
                       const SizedBox(height: 14),
 
                       const Text(
-                        'MAJD CAMERA  •  CREATE YOUR MOMENT',
+                        'MAJD CAMERA • CREATE YOUR MOMENT',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 9,
@@ -680,5 +677,4 @@ class _CameraScreenState extends State<CameraScreen> {
       ),
     );
   }
-
-
+}
