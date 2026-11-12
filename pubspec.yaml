@@ -1,6 +1,6 @@
 
 name: majd_camera
-description: MAJD CAMERA - Advanced Flutter Camera App
+description: MAJD CAMERA - Advanced Camera App with Live Filters and Face Detection
 publish_to: 'none'
 
 version: 1.0.0+1
