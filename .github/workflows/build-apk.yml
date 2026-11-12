@@ -1,5 +1,5 @@
 
-name: Majd Camera APK Build
+name: MAJD CAMERA APK Build
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Project
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Java
@@ -24,29 +24,24 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.38.5'
           channel: stable
           cache: true
 
-      - name: Create Flutter Project
+      - name: Create Android Platform If Missing
         run: |
-          if [ ! -f pubspec.yaml ]; then
-            flutter create --org com.majd.camera --project-name majd_camera .
+          if [ ! -d android ]; then
+            flutter create \
+              --platforms=android \
+              --org com.majd.camera \
+              --project-name majd_camera \
+              .
           fi
-
-      - name: Add Camera and AR Dependencies
-        run: |
-          flutter pub add camera
-          flutter pub add gal
-          flutter pub add google_mlkit_face_mesh_detection
-
-      - name: Configure Android Permissions
-        run: |
-          sed -i '/WRITE_EXTERNAL_STORAGE/d' android/app/src/main/AndroidManifest.xml
 
       - name: Get Dependencies
         run: flutter pub get
 
-      - name: Build Android APK
+      - name: Build Release APK
         run: flutter build apk --release
 
       - name: Upload APK
